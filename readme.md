@@ -1,6 +1,10 @@
-Author: Rohan Doshi
-Project: Infection
+INFECTION
+=========
 
+####Author: Rohan Doshi
+####Project: Infection
+
+####Overview
 In javascript, I implemented total_infection and limited_infection. I 
 also created a  web app for visualizing and dynamically manipulating the 
 graph. A demo can be found at: 
@@ -8,6 +12,8 @@ http://rodoweb.com/KA/Infection.html
 
 The code can be found on Github:
 https://github.com/RohanDoshi2018/KhanAcademy
+
+####Solution
 
 In my solution, I created a undirected graph. I chose to model this as an 
 undirected as opposed to a directed graph because infections are transitive 
@@ -30,13 +36,14 @@ with the correct number of nodes, the specified node would be infected. If
 no node meets this criteria, the end user will be notified in the settings
 panel.
 
+####Future Development
 If I had more time:
-1) I would have optimized the data structures for faster node searching
-   (e.g. hash tables). 
-2) I would have significantly improved the UI/UX visualization.
-3) I would have built in a window pane to visualize data about specific nodes.
-4) I would allow for the dynamic creation of nodes with clicks on the screen,
+* I would have optimized the data structures for faster node searching
+(e.g. hash tables). 
+* I would have significantly improved the UI/UX visualization.
+* I would have built in a window pane to visualize data about specific nodes.
+* I would allow for the dynamic creation of nodes with clicks on the screen,
    and build in the functionality to drag nodes as well.
 
-Credit
+####Credit
 The sigma.js library was used to help in the plotting of node and edge objects.
