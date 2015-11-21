@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Khan Academy Demo - Rohan Doshi</title>
+  <style type="text/css">
+    body {
+      	margin: 0;
+      	font-family: Arial, Helvetica, sans-serif
+    }
+    #container {
+		position: absolute;
+		width: 80%;
+		height: 100%;
+		text-align: left;
+    }
+    #graph-container {
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		position: absolute;
+  	}
+  	#control-pane {
+		position: absolute;
+		width: 20%;
+		
+		right: 0;
+		width: 230px;
+		background-color: rgb(249, 247, 237);
+		box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+		padding: 8px;
+    }
+    h2 {
+    	text-align: center;
+    }
+    .key {
+    	font-size: 10pt;
+    	margin: 0;
+    	padding: 0;
+    	font-style: italic;
+    }
+  </style>
+  <script src="./sigma/sigma.min.js"></script>
+  <script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+</head>
+<body>
+
+<!-- left pane -->
+<div id="container">
+	<div id="graph-container"></div>
+</div>
+
+<!-- right pane -->
+<div id="control-pane">
+	<h2>Settings</h2>
+	<h6>Note: Larger nodes "coach" smaller nodes</h4>
+	 <select id="infectionCategory">
+     	<option value="total" selected>Total Infection</option>
+     	<option value="limited">Limited Infection</option>
+     </select>
+
+     <div id="limitedInfectionBox">
+
+     	<br>Targeted # Infected People:<br>
+ 		<input type="text" id="limitedSearchTarget" value="3">	
+     	<input type="button" value="RUN" id="limitedButton">
+     	<div id="warning" class="key"></div>
+     </div>
+
+     <div id="totalInfectionBox">
+     	<br>Software Version<br>
+     	<select id="versionCategory">
+     		<option value="1" selected>Version 0.1.0</option>
+     		<option value="2">Version 0.2.0</option>
+     		<option value="3">Version 0.3.0</option>
+     		<option value="4">Version 0.4.0</option>
+     	</select>
+
+     	<br><br>Reset all nodes<br>
+     	<input type="button" value="RESET" onclick="resetNodes()">
+
+     	<br><br>
+	    <p class="key">Key:</p>
+	    <p class="key">Version 0.1.0: Red</p>
+	    <p class="key">Version 0.1.0: Green</p>
+	    <p class="key">Version 0.1.0: Blue</p>
+	    <p class="key">Version 0.1.0: Yellow</p>
+
+     </div>
+</div>
+
+<script>
+	// initialize variables for plotting graph
+	var i,
+	    s,
+	    N = 20,
+	    E = 10,
+	    g = {
+	      nodes: [],
+	      edges: []
+	    };
+
+	// Add a method to the graph model that returns an
+	// object with every neighbors of a node inside:
+	sigma.classes.graph.addMethod('neighbors', function(nodeId) {
+		var k;
+		var neighbors = {};
+		var index = this.allNeighborsIndex[nodeId] || {};
+
+		for (k in index) {
+		  neighbors[k] = this.nodesIndex[k];
+		}
+
+		return neighbors;
+	});
+
+	// generate a random graph of nodes
+	// note: larger nodes are "teachers" to smaller nodes
+	for (i = 0; i < N; i++)
+	  g.nodes.push({
+	    id: 'n' + i,
+	    label: 'Node ' + i,
+	    x: Math.random(),
+	    y: Math.random(),
+	    size: Math.random(),
+	    version: 0,
+	    color: '#666',
+	    index: i
+	  });
+
+	// generate random edges to connect nodes
+	for (i = 0; i < E; i++) {
+	  g.edges.push({
+	    id: 'e' + i,
+	    source: 'n' + (Math.random() * N | 0),
+	    target: 'n' + (Math.random() * N | 0),
+	    size: Math.random(),
+	    color: '#ccc'
+	  });
+	}
+
+	// instantiate sigma
+	s = new sigma({
+	  graph: g,
+	  container: 'graph-container'
+	});
+
+	// update mode of the model (either total_infection
+	// or limited infection)
+	var mode = $("#infectionCategory")[0].value;
+	$("#limitedInfectionBox").hide();
+
+	// keep track of which infection mode is selected by user
+	$("#infectionCategory").on("change", function() {
+		mode = $("#infectionCategory")[0].value;
+		if (mode == 'total'){
+			$("#limitedInfectionBox").hide();
+			$("#totalInfectionBox").show();
+			resetNodes();
+		}
+		else {
+			$("#totalInfectionBox").hide();
+			$("#limitedInfectionBox").show();	
+			resetNodes();
+		}
+	});
+
+	// instantiate DFS variables
+	var marked = [];
+	var nInfected;
+	for (var i  = 0; i < s.graph.nodes().length; i++)
+		marked.push(0);
+
+	// run total_infection when a node clicked
+	s.bind('clickNode doubleClickNode rightClickNode', function(e) {
+		if (mode == 'total'){
+			var targetID = e.data.node.id;
+			var targetNode = s.graph.nodes(targetID);
+			total_infection(targetNode.index);
+			s.refresh();
+		}
+	});
+
+	// event handler for limited_infection button
+	$("#limitedButton").click(function(){
+       	limited_infection($("#limitedSearchTarget")[0].value);
+		s.refresh();
+    });
+
+	// infect the connected component associated with a  node
+	var total_infection = function(index){
+		for (var i  = 0; i < s.graph.nodes().length; i++)
+			marked[i] = 0;
+		nInfected = 1;
+		total_infection_dfs(index);
+		colorMarkedEdges();
+	};
+
+	// conduct depth-first search to "infect" nodes that form
+	// a connected-component
+	var total_infection_dfs = function(index) {
+		marked[index] = 1;
+
+		// check if version available, then change infected
+		// node's color accordingly
+
+		if(mode == 'total'){
+			if($("#versionCategory")[0].value == 1)
+				s.graph.nodes('n' + index).color = "#FF0000"; 
+			else if($("#versionCategory")[0].value == 2)
+			   	s.graph.nodes('n' + index).color = "#00FF00";
+			else if($("#versionCategory")[0].value == 3)
+			    s.graph.nodes('n' + index).color = "#0000FF";
+			else if($("#versionCategory")[0].value == 4)
+				s.graph.nodes('n' + index).color = "#FFD700";
+		} else 
+			s.graph.nodes('n' + index).color = "#FF0000"; 
+
+
+		var adj = s.graph.neighbors('n' + index);
+		for (var w in adj) {
+			adjIndex = s.graph.nodes(w).index;
+			if (!marked[adjIndex]) {
+				total_infection_dfs(adjIndex);
+				nInfected++;
+			}
+		}
+	};
+
+	// iterate through edges and mark as infected if source and target
+	// nodes are infected
+	var colorMarkedEdges = function() {
+		s.graph.edges().forEach(function(e) {
+	        if (marked[e.source.substring(1)] && marked[e.target.substring(1)]){
+	        	if(mode == 'total'){
+		        	if($("#versionCategory")[0].value == 1)
+						e.color = "#FF0000"; 
+					else if($("#versionCategory")[0].value == 2)
+					   	e.color = "#00FF00";
+					else if($("#versionCategory")[0].value == 3)
+					    e.color = "#0000FF";
+					else if($("#versionCategory")[0].value == 4)
+						e.color = "#FFD700";
+				} else 
+					e.color = "#FF0000"; 
+	        }
+	    });
+	};
+
+	// only infect a connected component with a target number of nodes
+	var limited_infection = function(targetInfected){
+		var nodeArray = s.graph.nodes();
+		$("#warning").text("");
+		resetNodes();
+
+		// iterate through all nodes
+		for (var n in nodeArray) {
+			// reset dfs variables
+			for (var i  = 0; i < s.graph.nodes().length; i++)
+				marked[i] = 0;
+			nInfected = 1;
+
+			// check if targeted number of infected possible from current
+			// starting node
+			limited_infection_dfs(nodeArray[n].index);
+
+			// change color of the target nodes
+			if(nInfected == targetInfected){
+				total_infection(nodeArray[n].index);
+				break;
+			}
+		}
+
+		if (nInfected != targetInfected)
+			$("#warning").text("Failure: No suitable connected component.");
+	};
+
+	// conduct depth-first search to "infect" nodes that form
+	// a connected-component
+	var limited_infection_dfs = function(index) {
+		marked[index] = 1;
+		var adj = s.graph.neighbors('n' + index);
+		for (var w in adj) {
+			adjIndex = s.graph.nodes(w).index;
+			if (!marked[adjIndex]) {
+				limited_infection_dfs(adjIndex);
+				nInfected++;
+			}
+		}
+	};
+
+	// reset all nodes and edges to starting state
+	var resetNodes = function(){
+		
+		s.graph.nodes().forEach(function(n) {
+			n.color = '#666';
+			n.version = 0;
+		});
+
+		s.graph.edges().forEach(function(e) {
+			e.color = '#ccc';
+		});
+
+		s.refresh();
+	};
+</script>
+
+</body>
+</html>
